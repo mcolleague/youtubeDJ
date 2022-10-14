@@ -1,7 +1,21 @@
 const pl = document.querySelector('video');
+const audioCtx = new AudioContext();
+const source = audioCtx.createMediaElementSource(pl);
+const biquadFilter = audioCtx.createBiquadFilter();
 let cuePoint = 0;
 
+// Connect audio nodes
+source.connect(biquadFilter);
+biquadFilter.connect(audioCtx.destination);
+
+// Set filter type and initial value
+biquadFilter.type = 'highpass';
+biquadFilter.frequency.value = 0;
+
+// Disable pitch preservation for natural effect
 pl.preservesPitch = false;
+
+// Create GUI
 addComponent('style', document.querySelector('head'), getStyles());
 addComponent('div', document.querySelector('#primary #player'), getHTML());
 
@@ -20,9 +34,20 @@ function onPitchSliderInput(val){
     pl.playbackRate = d;
 }
 
+function onFilterSliderInput (val) {
+    biquadFilter.frequency.value = 5000 * (val/100);
+}
+
 function resetPitch(){
+    const $input = document.getElementById('pitch-control');
     pl.playbackRate = 1;
-    document.querySelector('.ytdj-dash__pitchSlider input').value = 50;
+    $input.value = $input.getAttribute('value');
+}
+
+function resetHighPassFilter(){
+    const $input = document.getElementById('high-pass-filter-control');
+    biquadFilter.frequency.value = 0;
+    $input.value = $input.getAttribute('value');    
 }
 
 function addComponent(tag, target, html){
@@ -37,12 +62,27 @@ function getHTML () { return `
         <div class="ytdj-dash__header"><span>youtube dj</span></div>
         <div class="ytdj-dash__main">
             <div class="ytdj-dash__row">
-                <div class="ytdj-dash__pitchSlider">
+                <div class="ytdj-dash__sliderControl">
                     <label>Pitch</label> 
-                    <input type="range" value="50" oninput="onPitchSliderInput(this.value)"> 
+                    <input 
+                        id="pitch-control"
+                        type="range" 
+                        value="50" 
+                        oninput="onPitchSliderInput(this.value)"> 
                     <button onclick="resetPitch()">Reset</button>
                 </div>
             </div>
+            <div class="ytdj-dash__row">
+                <div class="ytdj-dash__sliderControl">
+                    <label>High-pass filter</label> 
+                    <input 
+                        id="high-pass-filter-control"
+                        type="range" 
+                        value="0" 
+                        oninput="onFilterSliderInput(this.value)"> 
+                    <button onclick="resetHighPassFilter()">Reset</button>
+                </div>
+            </div>            
             <div class="ytdj-dash__row">
                 <div class="ytdj-dash__cue">
                     <label>Cue</label> 
@@ -62,7 +102,6 @@ function getStyles () { return `
         top:10px;
         left:10px;
         width:200px;
-        height:200px;
         background-color:#fff;
         border-radius:2px;
         font-size:15px;
