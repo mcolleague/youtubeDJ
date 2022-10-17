@@ -27,7 +27,7 @@ addComponent('div', document.querySelector('#primary #player'), getHTML());
 setOutputOptions();
 addKeyBindings();
 
-function addKeyBindings () {
+async function addKeyBindings () {
     const $pitchInput = document.getElementById('pitch-control');
 
     window.addEventListener('keypress', ({ key }) => {
@@ -43,6 +43,46 @@ function addKeyBindings () {
                 break;
         }
     })
+
+    const midi = await navigator.requestMIDIAccess();
+
+    const onMidiMessage = ({ data }) => {
+        const codes = [...data].map(char => `0x${char.toString(16)}`);
+        const [control, type, value] = [...data];
+        const id = `${control}-${type}`;
+
+        switch (id) {
+            case ('177-42'): // Pitch fader
+                $pitchInput.valueAsNumber = 100 * ((127 - value) / 127);
+                $pitchInput.oninput();
+                break;
+
+            case ('145-1'):  // Play/pause (& crossfader?)
+                if (value) {
+                    (pl.paused ? pl.play() : pl.pause());
+                }
+                break;
+
+            case ('145-2'):  // Cue
+                if (value) cue();
+                break;
+
+            case ('145-3'):  // Hotcue
+                setCue();
+                break;
+
+            case ('177-30'): // Jog wheel
+                pl.currentTime = pl.currentTime + (value > 64 ? .5 : -.5);
+                break;
+
+        }
+        console.log(codes, data);
+     }
+
+    for (const entry of midi.inputs) {
+        const input = entry[1];
+        input.addEventListener('midimessage', onMidiMessage);
+    }
 }
 
 async function setOutputOptions () {
@@ -76,8 +116,9 @@ function setCue(){
 }
 
 function onPitchSliderInput(val){
-    const d = 1 + ((val - 50) / 100);
-    pl.playbackRate = d;
+    const range = .12; 
+    const d = ((val - 50) / 50);
+    pl.playbackRate = 1 + (d * range);
 }
 
 function onFilterSliderInput (val) {
